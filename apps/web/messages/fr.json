@@ -4,6 +4,13 @@
     "encounters": "Consultations",
     "payments": "Paiements"
   },
+  "login": {
+    "title": "Connectez-vous à Health Watchers",
+    "email": "Adresse e-mail",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "loading": "Connexion en cours..."
+  },
   "home": {
     "title": "Health Watchers",
     "subtitle": "Dossier médical électronique assisté par IA, propulsé par la blockchain Stellar."

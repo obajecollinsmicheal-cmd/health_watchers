@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale } from "./i18n";
 
+const protectedRoutes = ["/patients", "/encounters", "/payments"];
+const publicRoutes = ["/login"];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -11,6 +14,22 @@ export function middleware(request: NextRequest) {
     pathname.includes(".")
   ) {
     return NextResponse.next();
+  }
+
+  const accessToken = request.cookies.get("accessToken")?.value;
+  const isProtectedRoute = protectedRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
+  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route));
+
+  // Redirect to login if accessing protected route without token
+  if (isProtectedRoute && !accessToken) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  // Redirect to home if accessing login with token
+  if (isPublicRoute && accessToken) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
 
   // Read locale from cookie, fall back to Accept-Language header, then default

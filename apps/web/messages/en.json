@@ -4,6 +4,13 @@
     "encounters": "Encounters",
     "payments": "Payments"
   },
+  "login": {
+    "title": "Sign in to Health Watchers",
+    "email": "Email address",
+    "password": "Password",
+    "submit": "Sign in",
+    "loading": "Signing in..."
+  },
   "home": {
     "title": "Health Watchers",
     "subtitle": "AI-assisted EMR powered by Stellar blockchain."

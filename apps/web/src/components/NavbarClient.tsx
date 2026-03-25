@@ -10,9 +10,31 @@ interface NavLink { href: string; label: string; }
 
 export default function NavbarClient({ links, locale }: { links: NavLink[]; locale: Locale }) {
   const [open, setOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch('/api/auth/check', { credentials: 'include' });
+        setIsLoggedIn(res.ok);
+      } catch {
+        setIsLoggedIn(false);
+      }
+    };
+    checkAuth();
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    setIsLoggedIn(false);
+    router.push('/login');
+  };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === "Escape") setOpen(false); }
@@ -28,15 +50,7 @@ export default function NavbarClient({ links, locale }: { links: NavLink[]; loca
     return () => document.removeEventListener("mousedown", onClick);
   }, [open]);
 
-  // Hide navbar on /login
   if (pathname === "/login") return null;
-
-  const handleLogout = () => {
-    // Clear auth token and redirect to login
-    document.cookie = "token=; Max-Age=0; path=/";
-    localStorage.removeItem("token");
-    router.push("/login");
-  };
 
   const linkClass = (href: string) =>
     `text-sm focus:outline-none focus:underline transition-colors ${
@@ -58,26 +72,28 @@ export default function NavbarClient({ links, locale }: { links: NavLink[]; loca
               Health Watchers
             </Link>
 
-            {/* Desktop */}
-            <ul className="hidden md:flex gap-6 list-none m-0 p-0" role="list">
-              {links.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className={linkClass(l.href)}>{l.label}</Link>
-                </li>
-              ))}
-            </ul>
+            {isLoggedIn && (
+              <ul className="hidden md:flex gap-6 list-none m-0 p-0" role="list">
+                {links.map((l) => (
+                  <li key={l.href}>
+                    <Link href={l.href} className={linkClass(l.href)}>{l.label}</Link>
+                  </li>
+                ))}
+              </ul>
+            )}
 
             <div className="hidden md:flex items-center gap-4">
               <LanguageSwitcher current={locale} />
-              <button
-                onClick={handleLogout}
-                className="text-sm text-gray-500 hover:text-red-600 focus:outline-none focus:underline transition-colors"
-              >
-                Logout
-              </button>
+              {isLoggedIn && (
+                <button
+                  onClick={handleLogout}
+                  className="text-sm text-gray-500 hover:text-red-600 focus:outline-none focus:underline transition-colors"
+                >
+                  Logout
+                </button>
+              )}
             </div>
 
-            {/* Hamburger */}
             <button
               className="md:hidden p-2 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
               aria-label={open ? "Close menu" : "Open menu"}
@@ -98,23 +114,32 @@ export default function NavbarClient({ links, locale }: { links: NavLink[]; loca
           </div>
         </div>
 
-        {/* Mobile menu */}
         {open && (
           <div id="mobile-menu" className="md:hidden border-t border-gray-100 bg-white px-4 pb-4">
-            <ul role="list" className="mt-3 flex flex-col gap-3 list-none m-0 p-0">
-              {links.map((l) => (
-                <li key={l.href}>
-                  <Link href={l.href} className={`block py-1 ${linkClass(l.href)}`} onClick={() => setOpen(false)}>
-                    {l.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {isLoggedIn && (
+              <>
+                <ul role="list" className="mt-3 flex flex-col gap-3 list-none m-0 p-0">
+                  {links.map((l) => (
+                    <li key={l.href}>
+                      <Link href={l.href} className={`block py-1 ${linkClass(l.href)}`} onClick={() => setOpen(false)}>
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setOpen(false);
+                  }}
+                  className="mt-3 block w-full text-left text-sm text-gray-500 hover:text-red-600 focus:outline-none focus:underline"
+                >
+                  Logout
+                </button>
+              </>
+            )}
             <div className="mt-4 flex items-center gap-4">
               <LanguageSwitcher current={locale} />
-              <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-red-600 focus:outline-none focus:underline">
-                Logout
-              </button>
             </div>
           </div>
         )}
