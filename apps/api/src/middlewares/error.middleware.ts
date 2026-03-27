@@ -22,15 +22,20 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     res.status(401).json({ error: 'TokenExpired', message: 'Token has expired' });
     return;
   }
+  
   if (err instanceof JsonWebTokenError) {
     res.status(401).json({ error: 'InvalidToken', message: 'Invalid token' });
     return;
   }
 
-  // Unexpected errors
   if (isDev) {
     console.error(err);
   }
+
   const stack = isDev && err instanceof Error ? err.stack : undefined;
-  res.status(500).json({ error: 'InternalServerError', message: 'An unexpected error occurred', ...(stack ? { stack } : {}) });
+  res.status(500).json({ 
+    error: 'InternalServerError', 
+    message: 'An unexpected error occurred', 
+    ...(stack ? { stack } : {}) 
+  });
 }

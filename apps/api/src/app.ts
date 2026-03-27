@@ -20,6 +20,7 @@ import {
 import logger from './utils/logger';
 
 const app = express();
+app.disable('x-powered-by');
 
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
   .split(',')
