@@ -4,11 +4,12 @@ import { Request, Response, Router } from 'express';
 import { validateRequest } from '@api/middlewares/validate.middleware';
 import { authenticate } from '@api/middlewares/auth.middleware';
 import {
-  LoginDto, RefreshDto,
-  loginSchema, refreshSchema, mfaVerifySchema, mfaChallengeSchema,
+  LoginDto, RefreshDto, RegisterDto,
+  loginSchema, refreshSchema, registerSchema, mfaVerifySchema, mfaChallengeSchema,
   MfaVerifyDto, MfaChallengeDto,
 } from './auth.validation';
 import { UserModel } from './models/user.model';
+import { ClinicModel } from '../clinics/clinic.model';
 import {
   signAccessToken, signRefreshToken, signTempToken,
   verifyRefreshToken, verifyTempToken,
@@ -372,6 +373,22 @@ router.post('/unlock', authenticate, async (req: Request, res: Response) => {
   await user.save();
 
   return res.json({ status: 'success', data: { unlocked: true, email: user.email } });
+});
+
+// POST /auth/register
+router.post('/register', validateRequest({ body: registerSchema }), async (req: Request<Record<string, never>, unknown, RegisterDto>, res: Response) => {
+  const { fullName, email, password, role, clinicId } = req.body;
+
+  const clinic = await ClinicModel.findById(clinicId);
+  if (!clinic || !clinic.isActive) {
+    return res.status(404).json({ error: 'ClinicNotFound', message: 'Clinic not found' });
+  }
+
+  const existing = await UserModel.findOne({ email: email.toLowerCase().trim() });
+  if (existing) return res.status(409).json({ error: 'Conflict', message: 'Email already registered' });
+
+  const user = await UserModel.create({ fullName, email, password, role, clinicId });
+  return res.status(201).json({ status: 'success', data: { id: user.id, email: user.email, role: user.role } });
 });
 
 export const authRoutes = router;
