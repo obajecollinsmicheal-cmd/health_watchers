@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { defaultLocale, type Locale } from "@/lib/locales";
 import NavbarClient from "./NavbarClient";
 

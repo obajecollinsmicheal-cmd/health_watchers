@@ -37,15 +37,5 @@ export { SlideOver } from "./SlideOver";
 export { ErrorMessage } from "./error-message";
 export { ErrorBoundary } from "./error-boundary";
 export { Toast } from "./toast";
-export {
-  Skeleton,
-  TableSkeleton,
-  CardSkeleton,
-  DetailSkeleton,
-} from "./Skeleton";
-export {
-  EmptyState,
-  ModuleEmptyState,
-  EmptyStatePresets,
-  type EmptyStateModule,
-} from "./EmptyState";
+export { AssetSelector } from "./AssetSelector";
+export { StellarAddressDisplay } from "./StellarAddressDisplay";

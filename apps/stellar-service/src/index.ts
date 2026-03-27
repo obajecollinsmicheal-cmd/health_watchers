@@ -1,14 +1,10 @@
-import { Networks, Horizon } from "@stellar/stellar-sdk";
-import { config } from "@health-watchers/config";
+import express from 'express';
 
-const networkPassphrase =
-  config.stellar.network === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+const app = express();
+const PORT = process.env.STELLAR_SERVICE_PORT ?? 3002;
 
-const networkLabel =
-  config.stellar.network === "mainnet" ? "MAINNET" : "TESTNET";
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-console.log(`Stellar network: ${networkLabel}`);
-
-const server = new Horizon.Server(config.stellar.horizonUrl);
-
-export { server, networkPassphrase };
+app.listen(PORT, () => {
+  console.log(`stellar-service running on port ${PORT}`);
+});
