@@ -1,6 +1,6 @@
-const baseConfig = require('@health-watchers/config/eslint-config');
+import baseConfig from '@health-watchers/config/eslint-config';
 
-module.exports = [
+export default [
   ...baseConfig,
   {
     ignores: ['dist/**', 'node_modules/**', '.next/**'],

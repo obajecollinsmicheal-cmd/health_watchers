@@ -1,7 +1,7 @@
 // @ts-check
-const tseslint = require('@typescript-eslint/eslint-plugin');
-const tsParser = require('@typescript-eslint/parser');
-const security = require('eslint-plugin-security');
+import tseslint from '@typescript-eslint/eslint-plugin';
+import tsParser from '@typescript-eslint/parser';
+import security from 'eslint-plugin-security';
 
 /** @type {import('eslint').Linter.FlatConfig[]} */
 const baseConfig = [
@@ -31,4 +31,4 @@ const baseConfig = [
   },
 ];
 
-module.exports = baseConfig;
+export default baseConfig;
