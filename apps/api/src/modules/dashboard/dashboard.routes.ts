@@ -1,6 +1,12 @@
 import { Router, Request, Response } from 'express';
+import { authenticate } from '../../middlewares/auth.middleware';
+import { getStats } from './dashboard.controller';
 
 const router = Router();
+
+// GET /api/v1/dashboard/stats
+// Returns dashboard statistics scoped to the authenticated user's clinic
+router.get('/stats', authenticate, getStats);
 
 // GET /api/v1/dashboard
 // Returns today's stats + recent records (last 5 each)

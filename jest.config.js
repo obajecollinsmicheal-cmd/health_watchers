@@ -3,6 +3,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   roots: ['<rootDir>/apps', '<rootDir>/packages'],
+  testMatch: ['**/*.test.ts', '**/*.spec.ts'],
   moduleNameMapper: {
     '^@api/(.*)$': '<rootDir>/apps/api/src/$1',
     '^@health-watchers/config$': '<rootDir>/packages/config/index.ts',
@@ -27,5 +28,5 @@ module.exports = {
       },
     ],
   },
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
 };
