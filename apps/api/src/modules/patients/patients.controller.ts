@@ -158,13 +158,14 @@ router.patch('/:id', WRITE_ROLES, async (req: Request, res: Response) => {
         .trim();
     }
 
-    const updated = await PatientModel.findByIdAndUpdate(req.params.id, update, { new: true });
+    const updated = await PatientModel.findOneAndUpdate({ _id: req.params.id, clinicId }, update, {
+      new: true,
+      runValidators: true,
+    });
     if (!updated) return res.status(404).json({ error: 'NotFound', message: 'Patient not found' });
     return res.json({ status: 'success', data: toPatientResponse(updated) });
-  } catch (err: any) {
-    return res.status(400).json({ error: 'BadRequest', message: err.message });
-  }
-});
+  }),
+);
 
 // DELETE /patients/:id — soft delete
 router.delete('/:id', WRITE_ROLES, async (req: Request, res: Response) => {
@@ -176,10 +177,8 @@ router.delete('/:id', WRITE_ROLES, async (req: Request, res: Response) => {
     );
     if (!doc) return res.status(404).json({ error: 'NotFound', message: 'Patient not found' });
     return res.json({ status: 'success', data: { id: String(doc._id), isActive: false } });
-  } catch (err: any) {
-    return res.status(500).json({ error: 'InternalError', message: err.message });
-  }
-});
+  }),
+);
 
 // GET /patients/:id/payments
 router.get('/:id/payments', asyncHandler(async (req: Request, res: Response) => {
