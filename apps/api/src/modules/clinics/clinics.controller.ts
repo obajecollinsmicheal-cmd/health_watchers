@@ -7,8 +7,13 @@ const router = Router();
 // POST /clinics — SUPER_ADMIN only
 router.post('/', authenticate, requireRoles('SUPER_ADMIN'), async (req: Request, res: Response) => {
   try {
-    const { name, address, contactEmail, plan } = req.body;
-    const clinic = await ClinicModel.create({ name, address, contactEmail, plan });
+    const { name, address, contactEmail, stellarPublicKey, plan } = req.body;
+    
+    if (!stellarPublicKey) {
+      return res.status(400).json({ error: 'BadRequest', message: 'stellarPublicKey is required' });
+    }
+    
+    const clinic = await ClinicModel.create({ name, address, contactEmail, stellarPublicKey, plan });
     return res.status(201).json({ status: 'success', data: clinic });
   } catch (err: any) {
     return res.status(400).json({ error: 'BadRequest', message: err.message });
