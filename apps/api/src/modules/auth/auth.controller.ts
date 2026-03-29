@@ -72,6 +72,12 @@ router.post('/register', authenticate, validateRequest({ body: registerSchema })
   const existing = await UserModel.findOne({ email: req.body.email.toLowerCase().trim() });
   if (existing) return res.status(409).json({ error: 'Conflict', message: 'Email already in use' });
 
+  // Validate that the clinic exists
+  const clinic = await ClinicModel.findById(req.body.clinicId);
+  if (!clinic) {
+    return res.status(400).json({ error: 'BadRequest', message: `Clinic with ID '${req.body.clinicId}' does not exist` });
+  }
+
   const user = await UserModel.create({
     fullName: req.body.fullName,
     email:    req.body.email.toLowerCase().trim(),

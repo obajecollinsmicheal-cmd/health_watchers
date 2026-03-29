@@ -35,8 +35,11 @@ export const createPaymentIntentSchema = z.object({
 });
 
 export const confirmPaymentSchema = z.object({
-  intentId: z.string().min(1, 'intentId is required'),
   txHash: z.string().min(1, 'txHash is required'),
+});
+
+export const confirmPaymentParamsSchema = z.object({
+  intentId: z.string().min(1, 'intentId is required'),
 });
 
 export const listPaymentsQuerySchema = z.object({
@@ -49,3 +52,4 @@ export const listPaymentsQuerySchema = z.object({
 export type CreatePaymentIntentDto = z.infer<typeof createPaymentIntentSchema>;
 export type ListPaymentsQuery      = z.infer<typeof listPaymentsQuerySchema>;
 export type ConfirmPaymentDto = z.infer<typeof confirmPaymentSchema>;
+export type ConfirmPaymentParamsDto = z.infer<typeof confirmPaymentParamsSchema>;
