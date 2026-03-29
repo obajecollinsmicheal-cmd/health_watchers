@@ -1,104 +1,103 @@
-"use client";
+// apps/web/src/app/encounters/page.tsx
 
-import { useMemo, useState } from "react";
-import EncounterTable, {
-  type EncounterRecord,
-  type EncounterStatus,
-  MOCK_ENCOUNTERS,
-} from "../../components/encounters/EncounterTable";
-import EncounterDetail from "../../components/encounters/EncounterDetail";
-import EncounterForm, {
-  type EncounterFormValues,
-} from "../../components/forms/EncounterForm";
+'use client';
+import { useState, useEffect } from 'react';
 
-function nextStatus(): EncounterStatus {
-  return "active";
+interface Encounter {
+  _id: string;
+  patientId: {
+    firstName: string;
+    lastName: string;
+    systemId: string;
+  };
+  status: string;
+  createdAt: string;
+  // ... other fields
 }
 
-function mapFormToEncounter(
-  values: EncounterFormValues,
-  existingLength: number,
-): EncounterRecord {
-  const encounterNumber = String(existingLength + 1).padStart(5, "0");
-
-  return {
-    id: `EN-2026-${encounterNumber}`,
-    patientName: values.patientName,
-    patientMrn: values.patientMrn,
-    doctor: values.doctor,
-    status: nextStatus(),
-    encounterAt: new Date().toISOString(),
-    chiefComplaint: values.chiefComplaint,
-    diagnosis: values.diagnosis
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean),
-    treatmentPlan: values.treatmentPlan,
-    prescriptions: values.prescriptions
-      .split("\n")
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((item) => ({
-        name: item,
-        dose: "As documented",
-        frequency: "As directed",
-      })),
-    vitals: {
-      bloodPressure: values.bloodPressure,
-      heartRate: values.heartRate,
-      temperature: values.temperature,
-      spo2: values.spo2,
-    },
-    followUpDate: values.followUpDate,
+interface ApiResponse {
+  status: string;
+  data: Encounter[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
   };
 }
 
 export default function EncountersPage() {
-  const [encounters, setEncounters] =
-    useState<EncounterRecord[]>(MOCK_ENCOUNTERS);
-  const [selectedEncounterId, setSelectedEncounterId] = useState<string | null>(
-    null,
-  );
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
 
-  const selectedEncounter = useMemo(
-    () => encounters.find((item) => item.id === selectedEncounterId) ?? null,
-    [encounters, selectedEncounterId],
-  );
+  useEffect(() => {
+    fetchEncounters();
+  }, [page]);
 
-  const doctors = useMemo(() => {
-    const list = Array.from(new Set(encounters.map((item) => item.doctor)));
-    return list.length > 0 ? list : ["Dr. Julian Smith"];
-  }, [encounters]);
-
-  const handleCreateEncounter = (values: EncounterFormValues) => {
-    const next = mapFormToEncounter(values, encounters.length);
-    setEncounters((prev) => [next, ...prev]);
-    setSelectedEncounterId(next.id);
+  const fetchEncounters = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      
+      const response = await fetch(`/api/v1/encounters?${params}`);
+      const data: ApiResponse = await response.json();
+      
+      if (data.status === 'success') {
+        setEncounters(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch encounters:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <main className="mx-auto max-w-6xl px-4 py-6 md:px-6">
-      {!selectedEncounter ? (
-        <EncounterTable
-          encounters={encounters}
-          onViewDetail={setSelectedEncounterId}
-          onNewEncounter={() => setIsFormOpen(true)}
-        />
-      ) : (
-        <EncounterDetail
-          encounter={selectedEncounter}
-          onBack={() => setSelectedEncounterId(null)}
-          onEdit={() => setIsFormOpen(true)}
-        />
-      )}
+  if (loading) return <div>Loading encounters...</div>;
 
-      <EncounterForm
-        open={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleCreateEncounter}
-        doctors={doctors}
-      />
-    </main>
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold mb-6">Encounters</h1>
+      <div className="grid gap-4">
+        {encounters.map((encounter) => (
+          <div key={encounter._id} className="p-4 border rounded-lg">
+            <div className="font-medium">
+              {encounter.patientId?.firstName} {encounter.patientId?.lastName}
+              <span className="text-sm text-gray-500 ml-2">
+                ({encounter.patientId?.systemId})
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              Status: <span className="font-semibold">{encounter.status}</span>
+            </div>
+            <div className="text-xs text-gray-500">
+              {new Date(encounter.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+        ))}
+      </div>
+      
+      {/* Pagination */}
+      <div className="mt-6 flex justify-between">
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={page === 1}
+          className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span>
+          Page {page} of {Math.ceil(100 / limit)} {/* Replace 100 with meta.total */}
+        </span>
+        <button
+          onClick={() => setPage(p => p + 1)}
+          className="px-4 py-2 bg-blue-500 text-white rounded"
+        >
+          Next
+        </button>
+      </div>
+    </div>
   );
 }

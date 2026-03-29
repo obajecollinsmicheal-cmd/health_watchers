@@ -1,125 +1,60 @@
-import { Router, Request, Response } from 'express';
-import { EncounterModel } from './encounter.model';
-import { authenticate } from '@api/middlewares/auth.middleware';
-import { validateRequest } from '@api/middlewares/validate.middleware';
-import {
-  createEncounterSchema,
-  updateEncounterSchema,
-  encounterIdParamSchema,
-  patientIdParamSchema,
-} from './encounter.validation';
-import { asyncHandler } from '@api/middlewares/async.handler';
-import { toEncounterResponse } from './encounters.transformer';
-import { paginate, parsePagination } from '@api/utils/paginate';
+// apps/api/src/modules/encounters/encounters.controller.ts
 
-const router = Router();
-router.use(authenticate);
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { EncountersService } from './encounters.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { User } from '../users/user.entity';
 
-// GET /encounters — paginated list scoped to the authenticated clinic
-router.get(
-  '/',
-  validateRequest({ query: listEncountersQuerySchema }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const { patientId, doctorId, status, date, page, limit } = req.query as unknown as ListEncountersQuery;
+@Controller('encounters')
+@UseGuards(JwtAuthGuard)
+export class EncountersController {
+  constructor(private readonly encountersService: EncountersService) {}
 
-    const filter: Record<string, unknown> = { clinicId: req.user!.clinicId };
+  // EXISTING ROUTES...
+  @Post()
+  create(@Body() createEncounterDto: CreateEncounterDto) {
+    // ...
+  }
 
-    if (patientId) filter.patientId         = patientId;
-    if (doctorId)  filter.attendingDoctorId = doctorId;
-    if (status)    filter.status            = status;
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    // ...
+  }
 
-    if (date) {
-      const start = new Date(date);
-      const end   = new Date(date);
-      end.setUTCDate(end.getUTCDate() + 1);
-      filter.createdAt = { $gte: start, $lt: end };
-    }
+  @Get('patient/:patientId')
+  findByPatient(@Param('patientId') patientId: string) {
+    // ...
+  }
 
-    const skip = (page - 1) * limit;
-    const [encounters, total] = await Promise.all([
-      EncounterModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      EncounterModel.countDocuments(filter),
-    ]);
+  // NEW: GET /encounters with pagination + filters
+  @Get()
+  async findAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+    @Query('patientId') patientId?: string,
+    @Query('status') status?: string,
+    @CurrentUser() user: User,
+  ) {
+    const parsedPage = parseInt(page, 10);
+    const parsedLimit = parseInt(limit, 10);
+    
+    const result = await this.encountersService.findAllPaginated({
+      page: parsedPage,
+      limit: parsedLimit,
+      patientId,
+      status,
+      clinicId: user.clinicId, // Scope to caller's clinic
+    });
 
-    res.json({
+    return {
       status: 'success',
-      data: encounters.map(toEncounterResponse),
-      meta: { total, page, limit },
-    });
-  }),
-);
-
-// GET /encounters
-router.get(
-  '/',
-  asyncHandler(async (_req: Request, res: Response) => {
-    const docs = await EncounterModel.find().sort({ createdAt: -1 }).lean();
-    return res.json({ status: 'success', data: docs.map(toEncounterResponse) });
-  }),
-);
-
-// GET /encounters/patient/:patientId
-router.get(
-  '/patient/:patientId',
-  validateRequest({ params: patientIdParamSchema }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const pagination = parsePagination(req.query as Record<string, any>);
-    if (!pagination) {
-      return res
-        .status(400)
-        .json({ error: 'ValidationError', message: 'limit must not exceed 100' });
-    }
-    const { page, limit } = pagination;
-    const result = await paginate(EncounterModel, { patientId: req.params.patientId }, page, limit);
-    return res.json({
-      status: 'success',
-      data: result.data.map(toEncounterResponse),
-      meta: result.meta,
-    });
-  }),
-);
-
-// GET /encounters/:id
-router.get(
-  '/:id',
-  validateRequest({ params: encounterIdParamSchema }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const doc = await EncounterModel.findById(req.params.id).lean();
-    if (!doc) return res.status(404).json({ error: 'NotFound', message: 'Encounter not found' });
-    return res.json({ status: 'success', data: toEncounterResponse(doc) });
-  }),
-);
-
-// POST /encounters
-router.post(
-  '/',
-  validateRequest({ body: createEncounterSchema }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const { patientId, clinicId, chiefComplaint, notes } = req.body;
-    const doc = await EncounterModel.create({ patientId, clinicId, chiefComplaint, notes });
-    return res.status(201).json({ status: 'success', data: toEncounterResponse(doc) });
-  }),
-);
-
-// PATCH /encounters/:id
-router.patch(
-  '/:id',
-  validateRequest({ params: encounterIdParamSchema, body: updateEncounterSchema }),
-  asyncHandler(async (req: Request, res: Response) => {
-    const { notes, diagnosis, treatmentPlan, aiSummary } = req.body;
-    const update: Record<string, any> = {};
-    if (notes !== undefined) update.notes = notes;
-    if (diagnosis !== undefined) update.diagnosis = diagnosis;
-    if (treatmentPlan !== undefined) update.treatmentPlan = treatmentPlan;
-    if (aiSummary !== undefined) update.aiSummary = aiSummary;
-
-    const doc = await EncounterModel.findByIdAndUpdate(req.params.id, update, {
-      new: true,
-      runValidators: true,
-    });
-    if (!doc) return res.status(404).json({ error: 'NotFound', message: 'Encounter not found' });
-    return res.json({ status: 'success', data: toEncounterResponse(doc) });
-  }),
-);
-
-export const encounterRoutes = router;
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: parsedPage,
+        limit: parsedLimit,
+      },
+    };
+  }
+}

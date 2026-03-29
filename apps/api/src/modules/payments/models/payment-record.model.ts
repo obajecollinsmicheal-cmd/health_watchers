@@ -7,6 +7,7 @@ export interface PaymentRecord {
   memo?: string;
   status: 'pending' | 'confirmed' | 'failed';
   txHash?: string;
+  confirmedAt?: Date;
   clinicId: string;
   patientId?: string;
   assetCode: string;
@@ -26,15 +27,15 @@ const paymentRecordSchema = new Schema<PaymentRecord>(
       index: true,
     },
     txHash: { type: String },
+    confirmedAt: { type: Date },
     clinicId: { type: String, required: true, index: true },
     patientId: { type: String, index: true },
     assetCode: { type: String, required: true, default: 'XLM', uppercase: true, trim: true },
-    assetIssuer: { type: String, default: null }, // null for native XLM
+    assetIssuer: { type: String, default: null },
   },
   { timestamps: true, versionKey: false },
 );
 
-// Index for efficient cleanup of expired pending payments
 paymentRecordSchema.index({ status: 1, createdAt: 1 });
 
 export const PaymentRecordModel =

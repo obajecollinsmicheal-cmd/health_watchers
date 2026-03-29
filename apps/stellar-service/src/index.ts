@@ -1,91 +1,76 @@
-import express, { Request, Response } from "express";
-import { stellarConfig } from "./config";
-import { assertMainnetSafety, assertTransactionLimit, TransactionLimitError } from "./guards";
+// apps/stellar-service/src/index.ts
 
-// Safety check — exits with code 1 if mainnet is not explicitly confirmed
-assertMainnetSafety();
+import express from 'express';
+import { Server } from 'http';
+import { fundAccount, createIntent, verifyIntent } from './stellar.js'; // your existing imports
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
-app.use(express.json());
+const PORT = process.env.STELLAR_PORT || 3002;
+const SHARED_SECRET = process.env.STELLAR_SERVICE_SECRET;
 
-// ── Health ────────────────────────────────────────────────────────────────────
-app.get("/health", (_req: Request, res: Response) => {
-  res.json({
-    status: "ok",
-    network: stellarConfig.network,
-    dryRun: stellarConfig.dryRun,
-  });
-});
-
-// ── Friendbot / Fund ──────────────────────────────────────────────────────────
-// Disabled on mainnet — friendbot only exists on testnet
-app.post("/fund", (_req: Request, res: Response) => {
-  if (stellarConfig.network === "mainnet") {
-    return res.status(403).json({
-      error: "FundbotDisabled",
-      message: "The /fund endpoint is disabled on mainnet.",
-    });
-  }
-
-  // Testnet: proxy to friendbot
-  return res.json({ status: "ok", message: "Friendbot request would be sent (testnet)." });
-});
-
-// ── Send Payment ──────────────────────────────────────────────────────────────
-app.post("/send", async (req: Request, res: Response) => {
-  const { destination, amount } = req.body as { destination?: string; amount?: number };
-
-  if (!destination || amount == null) {
-    return res.status(400).json({ error: "BadRequest", message: "destination and amount are required" });
-  }
-
-  const amountXlm = Number(amount);
-  if (isNaN(amountXlm) || amountXlm <= 0) {
-    return res.status(400).json({ error: "BadRequest", message: "amount must be a positive number" });
-  }
-
-  try {
-    assertTransactionLimit(amountXlm);
-  } catch (err) {
-    if (err instanceof TransactionLimitError) {
-      return res.status(400).json({
-        error: "TransactionLimitExceeded",
-        message: err.message,
-        limit: stellarConfig.maxTransactionXlm,
-      });
-    }
-    throw err;
-  }
-
-  if (stellarConfig.dryRun) {
-    console.log(`[DRY RUN] Would send ${amountXlm} XLM to ${destination}`);
-    return res.json({ status: "dry-run", destination, amount: amountXlm });
-  }
-
-  // Real submission would happen here
-  return res.json({ status: "ok", destination, amount: amountXlm });
-});
-
-// ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(stellarConfig.port, () => {
-  console.log(`stellar-service running on port ${stellarConfig.port} [${stellarConfig.network}]`);
-  if (stellarConfig.dryRun) {
-    console.log("  ⚠️  Dry-run mode active — no transactions will be submitted");
-  }
-});
-
-function shutdown(signal: string) {
-  logger.info({ signal }, 'Shutting down gracefully...');
-  server.close(() => {
-    logger.info('HTTP server closed');
-    process.exit(0);
-  });
-
-  setTimeout(() => {
-    logger.error('Shutdown timeout exceeded — forcing exit');
-    process.exit(1);
-  }, SHUTDOWN_TIMEOUT_MS).unref();
+if (!SHARED_SECRET) {
+  console.error('❌ STELLAR_SERVICE_SECRET required!');
+  process.exit(1);
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+// Middleware: Validate Shared Secret (ONLY for mutating endpoints)
+const requireSecret = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Missing Authorization header' });
+  }
+  
+  const token = authHeader.substring(7); // Remove "Bearer "
+  
+  if (token !== SHARED_SECRET) {
+    return res.status(401).json({ error: 'Invalid secret' });
+  }
+  
+  next();
+};
+
+app.use(express.json());
+
+// ✅ PROTECTED: POST /fund (requires secret)
+app.post('/fund', requireSecret, async (req, res) => {
+  try {
+    const { publicKey, amount } = req.body;
+    const result = await fundAccount(publicKey, amount);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ PROTECTED: POST /intent (requires secret)
+app.post('/intent', requireSecret, async (req, res) => {
+  try {
+    const { fromPublicKey, toPublicKey, amount } = req.body;
+    const result = await createIntent(fromPublicKey, toPublicKey, amount);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ PUBLIC: GET /verify/:hash (no auth needed)
+app.get('/verify/:hash', async (req, res) => {
+  try {
+    const { hash } = req.params;
+    const result = await verifyIntent(hash);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const server: Server = app.listen(PORT, () => {
+  console.log(`🚀 Stellar Service running on port ${PORT}`);
+  console.log(`🔒 Protected by secret: ${SHARED_SECRET ? 'SET' : 'MISSING'}`);
+});
+
+export default server;
